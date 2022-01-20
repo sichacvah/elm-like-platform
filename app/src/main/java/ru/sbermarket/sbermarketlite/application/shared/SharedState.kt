@@ -6,8 +6,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import ru.sbermarket.platform.*
 
+
+
 data class Config(
-    val baseUrl: String = "https://api.sbermarket.ru"
+    val baseUrl: String = "https://api.sbermarket.ru",
+    val geocoding: Geocoding = Geocoding()
 )
 
 typealias SharedStateModel = SharedState.Model
@@ -30,12 +33,26 @@ interface SharedStateFeature {
     ): Pair<SharedState.Model, Effect<SharedState.Msg>>
 }
 
+fun SharedState.Model.status(): SharedState.Status {
+    return when (currentOrder) {
+        is CurrentOrder.Model.OrderLoadingError -> SharedState.Status.ERROR
+        is CurrentOrder.Model.OrderLoaded -> SharedState.Status.READY
+        is CurrentOrder.Model.Loading -> SharedState.Status.LOADING
+        is CurrentOrder.Model.NotInitialized -> SharedState.Status.LOADING
+    }
+}
+
 object SharedState {
     sealed class Msg {
         data class ChangeConfig(val config: Config): Msg()
         data class OrderMsg(val subMsg: CurrentOrder.Msg): Msg()
     }
 
+    enum class Status {
+        READY,
+        ERROR,
+        LOADING
+    }
 
     data class Model(
         val currentOrder: CurrentOrder.Model,

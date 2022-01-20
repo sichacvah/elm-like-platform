@@ -14,6 +14,10 @@ import ru.sbermarket.platform.modules.json.Decoder
 import ru.sbermarket.platform.modules.json.Json
 import ru.sbermarket.platform.modules.Http.HttpTaskParams
 import ru.sbermarket.platform.modules.Http.Error as HttpError
+import ru.sbermarket.platform.modules.Http.Method
+import ru.sbermarket.platform.modules.json.Json.Decode.convert
+import ru.sbermarket.platform.modules.json.Json.Decode.field
+import ru.sbermarket.platform.modules.json.Json.Decode.string
 
 interface CurrentOrderFeature {
     fun update(config: Config, msg: CurrentOrder.Msg, model: CurrentOrder.Model): Pair<CurrentOrder.Model, Effect<CurrentOrder.Msg>>
@@ -26,14 +30,14 @@ data class Order(
 ) {
     companion object {
         fun decoder(): Decoder<Order> {
-            return Json.Decode.convert(
-                Json.Decode.field("number", Json.Decode.string()),
+            return convert(
+                field("number", string()),
                 ::Order
             )
         }
 
         fun responseDecoder(): Decoder<Order> {
-            return Json.Decode.field("order", decoder())
+            return field("order", decoder())
         }
     }
 }
@@ -60,11 +64,6 @@ fun CurrentOrder.Model.prepareToEncode(): CurrentOrder.Model {
 fun CurrentOrder.Model.error(error: String): CurrentOrder.Model = when (this) {
     is CurrentOrder.Model.OrderLoaded -> this
     else -> CurrentOrder.Model.OrderLoadingError(error)
-}
-
-fun <E, T> ru.sbermarket.platform.Result<E, T>.toNullable(): T? = when (this) {
-    is Result.Success -> result
-    is Result.Error -> null
 }
 
 @Composable
@@ -114,9 +113,6 @@ object CurrentOrder  {
         data class OrderNumberLoaded(
             val orderNumber: String?
         ): Msg()
-
-
-
         data class OrderLoaded(
             val result: Result<HttpError, Order>
         ): Msg()
@@ -140,7 +136,7 @@ object CurrentOrder  {
     private fun Platform.loadOrderByNumber(config: Config, number: String): Effect<Msg> {
         return Http.request(
             HttpTaskParams(
-                method = "get",
+                method = Method.GET,
                 url = "${config.baseUrl}/v2/orders/${number}",
                 expect = Http.expectJson(
                     decoder = Order.responseDecoder(),
@@ -152,7 +148,7 @@ object CurrentOrder  {
 
     private fun Platform.loadOrCreate(config: Config): Effect<Msg> {
         return Http.request(HttpTaskParams(
-            method = "post",
+            method = Method.POST,
             url = "${config.baseUrl}/v2/orders",
             expect = Http.expectJson(
                 decoder = Order.responseDecoder(),

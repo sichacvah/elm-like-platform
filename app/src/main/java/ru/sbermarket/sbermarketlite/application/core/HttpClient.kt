@@ -1,5 +1,6 @@
 package ru.sbermarket.sbermarketlite.application.core
 
+import android.util.Log
 import io.ktor.client.call.*
 import io.ktor.client.engine.android.*
 import io.ktor.client.features.*
@@ -20,7 +21,7 @@ fun HttpResponse.toResponse() = object : Response {
     }
     override val headers: List<Header>
         get() = this@toResponse.headers.toMap().map {
-            Header(it.key, it.value.joinToString { "" })
+            Header(it.key, it.value.joinToString())
         }
 
 }
@@ -31,7 +32,7 @@ class HttpKtorClient: HttpClient {
     override suspend fun request(params: RequestParams): Result<Http.Error, Response> {
         return try {
             val response: HttpResponse =  ktorClient.request {
-                method = HttpMethod.parse(params.method.uppercase())
+                method = HttpMethod.parse(params.method.string.uppercase())
                 headers {
                     params.headers.forEach {
                         append(it.name, it.value)
@@ -47,6 +48,7 @@ class HttpKtorClient: HttpClient {
                     }
                 }
             }
+            Log.e("Response", response.toResponse().stringBody())
             Result.Success(response.toResponse())
         } catch (e: SocketTimeoutException) {
             Result.Error(Http.Error.Timeout)

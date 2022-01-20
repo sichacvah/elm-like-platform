@@ -8,17 +8,22 @@ import ru.sbermarket.platform.Dispatch
 import ru.sbermarket.platform.Effect
 import ru.sbermarket.platform.Platform
 import ru.sbermarket.platform.PlatformWithInit
+import ru.sbermarket.platform.modules.DestinationService
+import ru.sbermarket.platform.modules.DestinationToMsg
 
 
 @Composable
 fun <Model, Msg> PlatformWithInit.Compose(
     init: Platform.() -> Pair<Model, Effect<Msg>>,
     update: Platform.(Msg, Model)  -> Pair<Model, Effect<Msg>>,
+    onDestinationChange: DestinationToMsg<Msg>,
     view: @Composable (model: Model, dispatch: Dispatch<Msg>) -> Unit
 ) {
-    val runtime = remember { this.init(
+    val runtime = remember {
+        this.init(
             init = init,
-            update = update
+            update = update,
+            onDestinationChange = onDestinationChange
         )
     }
 

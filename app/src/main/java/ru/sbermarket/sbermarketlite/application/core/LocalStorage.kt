@@ -13,7 +13,6 @@ import ru.sbermarket.platform.LocalStorage
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "sbermarket.Preferences")
 
-
 class DataLocalStorage(
     val context: Context
 ): LocalStorage {

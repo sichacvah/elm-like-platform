@@ -1,13 +1,6 @@
 package ru.sbermarket.platform
 
-
-
 import kotlinx.coroutines.launch
-
-
-/**
- * Dispatch
- */
 
 /**
  * map dispatch of msg type [A] to dispatch msg type [B]
@@ -81,6 +74,7 @@ fun <A, B> Effect<A>.mapTo(f: (A) -> B): Effect<B> {
  * Create a pair of [model] to [effect] where [effect] defaults to [none].
  */
 fun <Model, Msg> next(model: Model, effect: Effect<Msg> = none()): Pair<Model, Effect<Msg>> = model to effect
+
 
 fun <Feature : Any> featureHolder(
     init: (platform: Platform) -> Feature

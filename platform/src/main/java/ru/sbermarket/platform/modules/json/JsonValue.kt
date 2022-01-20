@@ -3,7 +3,6 @@ package ru.sbermarket.platform.modules.json
 import ru.sbermarket.platform.Result
 
 
-
 sealed class JsonValue<T> {
     abstract val value : T
     open fun makeString(indent: Int): String {
@@ -18,8 +17,6 @@ sealed class JsonValue<T> {
     override fun hashCode(): Int {
         return value?.hashCode() ?: 0
     }
-
-
 
     fun asFloat(): Result<Json.Error, Float> {
         return when (this) {

@@ -7,6 +7,15 @@ import ru.sbermarket.platform.Meta
 import ru.sbermarket.platform.modules.json.Decoder
 import ru.sbermarket.platform.modules.json.Json
 
+fun Http.Error.message(): String {
+    return when (this) {
+        is Http.Error.Timeout -> "Timeout"
+        is Http.Error.BadUrl -> "Bad url - $url"
+        is Http.Error.NetworkError -> "Network Error"
+        is Http.Error.BadStatus -> "Bad Status - $status"
+        is Http.Error.BadBody -> "Bad Body:\n\n $body"
+    }
+}
 
 interface Http {
     fun <Msg> cancel(tracker: String, toMsg: () -> Msg): Effect<Msg>
@@ -27,8 +36,19 @@ interface Http {
         data class BadBody(val body: String) : Error()
     }
 
+
+
+    enum class Method(val string: String) {
+        GET("get"),
+        POST("post"),
+        PUT("put"),
+        DELETE("delete"),
+        PATCH("patch"),
+        OPTIONS("options")
+    }
+
     data class HttpTaskParams<Msg>(
-        val method: String,
+        val method: Method,
         val headers: List<Header> = listOf(),
         val url: String,
         val expect: Expect<Msg>,
@@ -62,7 +82,8 @@ internal class HttpImpl(
                 val result = httpClient.request(RequestParams(
                     method = params.method,
                     url = params.url,
-                    body = params.body
+                    body = params.body,
+                    headers = params.headers
                 ))
 
                 val stringResult: Result<Http.Error, String> =  when (result) {

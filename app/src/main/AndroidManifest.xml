@@ -3,6 +3,7 @@
     package="ru.sbermarket.sbermarketlite">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
         android:name=".MainApp"
@@ -23,6 +24,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <meta-data android:name="com.here.sdk.access_key_id" android:value="1Vm_tB4YJaZ1Y_SjvKbEpA" />
+        <meta-data android:name="com.here.sdk.access_key_secret" android:value="OXDyqNvc4eNyr5G0AGgByPzSVTCXwRusoHlbYxswKR07cFhRka0jfZxmyUtwwBqA3mk7FiuvB6CajdD8Cxwq-A" />
+
     </application>
 
 </manifest>

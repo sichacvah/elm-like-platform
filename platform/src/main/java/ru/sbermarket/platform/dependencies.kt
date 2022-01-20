@@ -26,7 +26,7 @@ data class Header(
 )
 
 data class RequestParams(
-    val method: String,
+    val method: Http.Method,
     val headers: List<Header> = listOf(),
     val url: String,
     val body: String? = null,

@@ -16,17 +16,26 @@ typealias Dispatch<Msg> = (Msg) -> Unit
  */
 internal typealias InvokeEffect<Msg> = suspend CoroutineScope.(Dispatch<Msg>) -> Any?
 
+/**
+ * Metadata for effect comparing
+ */
 internal data class Meta(
     val id: String,
     val options: Map<String, Any?> = mapOf()
 )
 
+/**
+ * getter for [Meta]
+ */
 internal fun <Msg> Effect<Msg>.meta(): Meta {
     return when (this) {
         is Effect.ManagedEffect -> meta
     }
 }
 
+/**
+ * getter for [InvokeEffect]
+ */
 internal val <Msg> Effect<Msg>.invoke: InvokeEffect<Msg>
     get() = when (this) {
         is Effect.ManagedEffect -> invoke

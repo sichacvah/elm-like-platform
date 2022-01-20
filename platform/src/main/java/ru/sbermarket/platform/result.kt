@@ -29,6 +29,13 @@ fun <E1, E2, R> Result<E1, R>.mapError(t: (E1) -> E2): Result<E2, R> {
     }
 }
 
+fun <E, T> Result<E, T>.toNullable(): T? {
+    return when (this) {
+        is Result.Error -> null
+        is Result.Success -> result
+    }
+}
+
 
 fun <E, R, R2> Result<E, R>.map(t: (R) -> R2): Result<E, R2> {
     return when (this) {

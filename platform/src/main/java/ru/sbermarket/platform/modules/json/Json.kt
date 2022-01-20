@@ -135,6 +135,21 @@ object Json {
             return NullDecoder(value)
         }
 
+        fun <T> maybe(decoder: Decoder<T>): Decoder<T?> {
+            return oneOf(
+                convert(decoder) {it},
+                success(null)
+            )
+        }
+
+        fun <T> oneOf(vararg decoder: Decoder<T>): Decoder<T> {
+            return oneOf(decoder.asIterable())
+        }
+
+        fun <T> oneOf(decoders: Iterable<Decoder<T>>): Decoder<T> {
+            return OneOfDecoder(decoders.toList())
+        }
+
         private fun indent(str: String): String = str.split("\n").joinToString("\n    ")
         private fun errorOneOf(index: Int, error: Error) = "\n\n(${index + 1})${indent(errorToString(error))}"
 
@@ -201,7 +216,12 @@ object Json {
 
         fun boolean(): Decoder<Boolean> = BooleanDecoder
 
-        fun <T> nullable(decoder: Decoder<T>): Decoder<T?> = NullableDecoder(decoder)
+        fun <T> nullable(decoder: Decoder<T>): Decoder<T?> {
+            return oneOf(
+                convert(decoder) { it },
+                decodeNull(null),
+            )
+        }
 
         fun <T> list(itemDecoder: Decoder<T>): Decoder<List<T>> = ListDecoder(itemDecoder)
 
@@ -216,6 +236,14 @@ object Json {
 
         fun <T> field(key: String, decoder: Decoder<T>): Decoder<T> {
             return FieldDecoder(key, decoder)
+        }
+
+        fun <T> at(decoder: Decoder<T>, vararg path: String,): Decoder<T> {
+            return at(path.asList(), decoder)
+        }
+
+        fun <T> at(vararg path: String, decoder: Decoder<T>): Decoder<T> {
+            return at(path.asList(), decoder)
         }
 
         fun <T> at(path: List<String>, decoder: Decoder<T>): Decoder<T> {

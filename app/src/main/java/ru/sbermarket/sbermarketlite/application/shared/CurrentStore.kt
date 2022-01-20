@@ -18,12 +18,12 @@ import ru.sbermarket.platform.Platform
 //        data class IdLoad(val result: Result<Exception, Int?>): Msg()
 //        data class StoreLoaded(val result: Result<Exception, Store>): Msg()
 //    }
-//    sealed class Model {
-//        object NotSelected : Model()
-//        object IdLoading : Model()
-//        data class StoreLoaded(val store: Store): Model()
-//        data class StoreLoading(val id : Int) : Model()
-//        data class LoadingError(val error : String, val id: Int) : Model()
+//    sealed class AddressState {
+//        object NotSelected : AddressState()
+//        object IdLoading : AddressState()
+//        data class StoreLoaded(val store: Store): AddressState()
+//        data class StoreLoading(val id : Int) : AddressState()
+//        data class LoadingError(val error : String, val id: Int) : AddressState()
 //    }
 //
 //    private const val STORE_ID_KEY = "STORE_KEY_ID"
@@ -54,43 +54,43 @@ import ru.sbermarket.platform.Platform
 //    }
 //
 //    interface Feature {
-//        fun init(config: Config): Pair<Model, Effect<Msg>>
+//        fun init(config: Config): Pair<AddressState, Effect<Msg>>
 //        fun update(
 //            config: Config,
 //            msg: Msg,
-//            model: Model
-//        ): Pair<Model, Effect<Msg>>
+//            model: AddressState
+//        ): Pair<AddressState, Effect<Msg>>
 //    }
 //
 //    private fun Platform.idLoaded(
 //        config: Config,
-//        model: Model,
+//        model: AddressState,
 //        result: Result<Exception, Int?>
-//    ): Pair<Model, Effect<Msg>> {
+//    ): Pair<AddressState, Effect<Msg>> {
 //        return when (model) {
-//            is Model.StoreLoaded -> model to none()
+//            is AddressState.StoreLoaded -> model to none()
 //            else -> {
 //                when (result) {
-//                    is Result.Error -> Model.NotSelected to none()
+//                    is Result.Error -> AddressState.NotSelected to none()
 //                    is Result.Success -> {
 //                        result.result?.let { id ->
-//                            Model.StoreLoading(id) to loadStore(config, id)
-//                        } ?: Model.NotSelected to none()
+//                            AddressState.StoreLoading(id) to loadStore(config, id)
+//                        } ?: AddressState.NotSelected to none()
 //                    }
 //                }
 //            }
 //        }
 //    }
 //
-//    fun Model.handleError(error: Exception): Model = when (this) {
-//        is Model.StoreLoaded -> this
-//        is Model.NotSelected -> this
-//        is Model.IdLoading -> Model.NotSelected
-//        is Model.StoreLoading -> Model.LoadingError(
+//    fun AddressState.handleError(error: Exception): AddressState = when (this) {
+//        is AddressState.StoreLoaded -> this
+//        is AddressState.NotSelected -> this
+//        is AddressState.IdLoading -> AddressState.NotSelected
+//        is AddressState.StoreLoading -> AddressState.LoadingError(
 //            id = id,
 //            error = error.message ?: error.toString()
 //        )
-//        is Model.LoadingError ->  Model.LoadingError(
+//        is AddressState.LoadingError ->  AddressState.LoadingError(
 //            id = id,
 //            error = error.message ?: error.toString()
 //        )
@@ -102,21 +102,21 @@ import ru.sbermarket.platform.Platform
 //            override fun update(
 //                config: Config,
 //                msg: Msg,
-//                model: Model
-//            ): Pair<Model, Effect<Msg>> {
+//                model: AddressState
+//            ): Pair<AddressState, Effect<Msg>> {
 //                return when (msg) {
 //                    is Msg.IdLoad -> platform.idLoaded(config, model, msg.result)
 //                    is Msg.StoreLoaded -> {
 //                        when (msg.result) {
 //                            is Result.Error -> model.handleError(msg.result.error) to none()
-//                            is Result.Success -> Model.StoreLoaded(msg.result.result) to none()
+//                            is Result.Success -> AddressState.StoreLoaded(msg.result.result) to none()
 //                        }
 //                    }
 //                }
 //            }
 //
-//            override fun init(config: Config): Pair<Model, Effect<Msg>> {
-//                return Model.IdLoading to platform.loadStoreId()
+//            override fun init(config: Config): Pair<AddressState, Effect<Msg>> {
+//                return AddressState.IdLoading to platform.loadStoreId()
 //            }
 //
 //        }
