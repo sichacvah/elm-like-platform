@@ -187,7 +187,6 @@ fun ValidatingAddressView(
         address = model.address.concatAddress()
     ) {
         dispatch(SelectAddress.Msg.BringHere)
-
     }
 
 }
