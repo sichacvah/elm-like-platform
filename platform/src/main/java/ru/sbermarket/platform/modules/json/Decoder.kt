@@ -43,7 +43,7 @@ internal object StringDecoder : Decoder<String>() {
     }
 }
 
-internal class NullDecoder<T>(val fallback : T): Decoder<T>() {
+internal class NullDecoder<T>(private val fallback : T): Decoder<T>() {
     override fun decode(value: JsonType): Result<Json.Error, T> {
         return when (val result = value.asNull()) {
             is Result.Success -> Result.Success(fallback)

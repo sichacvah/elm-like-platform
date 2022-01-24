@@ -9,11 +9,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import ru.sbermarket.platform.*
 import ru.sbermarket.platform.modules.Destination
-import ru.sbermarket.sbermarketlite.application.features.select_address.SelectAddress
-import ru.sbermarket.sbermarketlite.application.shared.CurrentOrder
+import ru.sbermarket.sbermarketlite.application.features.select_address.*
+import ru.sbermarket.sbermarketlite.application.features.select_store.SelectStore
+import ru.sbermarket.sbermarketlite.application.router.*
+import ru.sbermarket.sbermarketlite.application.shared.Config
 import ru.sbermarket.sbermarketlite.application.shared.SharedState
 import ru.sbermarket.sbermarketlite.application.shared.status
 import ru.sbermarket.sbermarketlite.rememberMapTo
+
+sealed interface Screen {
+    data class SelectAddressScreen(val model : SelectAddress.AddressState) : Screen
+    data class SelectStoreScreen(val model: SelectStore.Model) : Screen
+}
+
 
 
 object App {
@@ -33,21 +41,36 @@ object App {
                 }
             }
             is Model.Initialized -> {
-                SelectAddress.View(
-                    model = model.selectAddress,
-                    dispatch = dispatch.rememberMapTo(Msg::SelectAddressMsg)
-                )
+                val screen = model.backstack.top()
+                RouterView(shared = model.shared, screen = screen, dispatch = dispatch)
             }
         }
     }
 
+    @Composable
+    fun RouterView(shared: SharedState.Model, screen: Screen, dispatch: Dispatch<Msg>) {
+        when (screen) {
+            is Screen.SelectAddressScreen -> {
+                SelectAddress.View(
+                    model = screen.model,
+                    dispatch = dispatch.mapTo(Msg::GotSelectAddressMsg)
+                )
+            }
+            is Screen.SelectStoreScreen -> {
+                SelectStore.View(
+                    model = screen.model,
+                    dispatch = dispatch.mapTo(Msg::GotSelectStoreMsg)
+                )
+            }
+        }
+    }
 
     sealed class Model {
         data class Initializing(val shared: SharedState.Model) : Model()
         data class Error(val shared: SharedState.Model) : Model()
         data class Initialized(
             val shared: SharedState.Model,
-            val selectAddress: SelectAddress.AddressState
+            val backstack: BackStack<Screen>
         ) : Model()
 
         fun setShared(shared: SharedState.Model): Model {
@@ -67,24 +90,38 @@ object App {
         }
     }
 
-    sealed class Msg {
+    sealed interface Msg {
         data class SharedMsg(
             val subMsg: SharedState.Msg
-        ) : Msg()
-        data class SelectAddressMsg(
+        ) : Msg
+        data class GotSelectAddressMsg(
             val subMsg: SelectAddress.Msg
-        ) : Msg()
+        ) : Msg
+        data class GotSelectStoreMsg(
+            val subMsg: SelectStore.Msg
+        ) : Msg
         data class DestinationChanged(
             val destination: Destination
-        ) : Msg()
+        ) : Msg
+        object Back : Msg
+    }
+
+    fun handlePageMsg(platform: Platform, config: Config, msg: Msg, currentScreen: Screen): Pair<Screen, Effect<Msg>> {
+        return when {
+            (msg is Msg.GotSelectStoreMsg && currentScreen is Screen.SelectStoreScreen) -> {
+                val (model, effect) = SelectStore.update(msg.subMsg, currentScreen.model)
+                Screen.SelectStoreScreen(model) to effect.mapTo(Msg::GotSelectStoreMsg)
+            }
+            (msg is Msg.GotSelectAddressMsg && currentScreen is Screen.SelectAddressScreen) -> {
+                val (model, effect) = SelectAddress.update(platform, config, msg.subMsg, currentScreen.model)
+                Screen.SelectAddressScreen(model) to effect.mapTo(Msg::GotSelectAddressMsg)
+            }
+            else -> currentScreen to none()
+        }
     }
 
     fun update(platform: Platform, msg: Msg, model: Model): Pair<Model, Effect<Msg>> {
         return when (msg) {
-            is Msg.DestinationChanged -> {
-                Log.e("DESTINATION_CHANGED", msg.destination.urlString)
-                model to none()
-            }
             is Msg.SharedMsg -> {
                 val (shared, sharedEff) = SharedState.provideFeature(platform).update(msg.subMsg, model.shared())
                 when (shared.status()) {
@@ -93,26 +130,46 @@ object App {
                             platform = platform,
                             config = shared.config
                         )
-                        Model.Initialized(shared = shared, selectAddress = selectAddress) to batch(
-                            selectAddressEffect.mapTo(Msg::SelectAddressMsg),
+                        Model.Initialized(shared = shared, backstack = BackStack(current = Screen.SelectAddressScreen(selectAddress))) to batch(
+                            selectAddressEffect.mapTo(Msg::GotSelectAddressMsg),
                             sharedEff.mapTo(Msg::SharedMsg)
                         )
                     }
                     else -> model.setShared(shared = shared) to sharedEff.mapTo(Msg::SharedMsg)
                 }
             }
-            is Msg.SelectAddressMsg -> {
+            is Msg.Back -> {
                 when (model) {
                     is Model.Initialized -> {
-                        val (selectAddress, selectAddressEff) = SelectAddress.update(
-                            platform = platform,
-                            config = model.shared().config,
-                            msg = msg.subMsg,
-                            model = model.selectAddress
-                        )
-                        model.copy(selectAddress = selectAddress) to selectAddressEff.mapTo(Msg::SelectAddressMsg)
+                        val (backstack) = model.backstack.pop()
+                        model.copy(backstack = backstack) to none()
                     }
                     else -> model to none()
+                }
+            }
+            is Msg.DestinationChanged -> {
+                Log.e("DEST", msg.destination)
+                when (model) {
+                    is Model.Initialized -> {
+                        val backstack = model.backstack.push(Screen.SelectStoreScreen(SelectStore.Model.None))
+                        model.copy(backstack = backstack) to none()
+                    }
+                    else -> model to none()
+                }
+            }
+            else -> {
+                when (model) {
+                    is Model.Initialized -> {
+                        val (currentScreen, effect) = handlePageMsg(platform, model.shared.config, msg, model.backstack.top())
+                        val backStack = model.backstack.replace(currentScreen)
+                        model.copy(backstack = backStack) to effect
+                    }
+                    is Model.Initializing -> {
+                        model to none()
+                    }
+                    is Model.Error -> {
+                        model to none()
+                    }
                 }
             }
         }

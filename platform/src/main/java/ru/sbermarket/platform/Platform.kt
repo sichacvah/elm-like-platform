@@ -15,14 +15,16 @@ interface PlatformInitializer {
     fun <Model, Msg> init(
         init: Platform.() -> Pair<Model, Effect<Msg>>,
         update: Platform.(Msg, Model)  -> Pair<Model, Effect<Msg>>,
-        onDestinationChange: DestinationToMsg<Msg>
+        onDestinationChange: DestinationToMsg<Msg>,
+        toBackMsg: () -> Msg,
+        setupBackPressedCallback: (() -> Unit) -> Unit
     ): FlowRuntime<Model, Msg>
 }
 
 interface PlatformWithInit : PlatformInitializer, Platform
 
 class PlatformImpl(
-    dependencies: PlatformDependencies
+    private val dependencies: PlatformDependencies
 ): PlatformWithInit {
 
     private var destinationService: DestinationService = AwaitingDestinationService()
@@ -38,7 +40,9 @@ class PlatformImpl(
     override fun <Model, Msg> init(
         init: Platform.() -> Pair<Model, Effect<Msg>>,
         update: Platform.(Msg, Model) -> Pair<Model, Effect<Msg>>,
-        onDestinationChange: DestinationToMsg<Msg>
+        onDestinationChange: DestinationToMsg<Msg>,
+        toBackMsg: () -> Msg,
+        setupBackPressedCallback : (() -> Unit) -> Unit
     ): FlowRuntime<Model, Msg> {
 
         val runtime = flowRuntime(
@@ -47,12 +51,16 @@ class PlatformImpl(
             update = update
         )
 
+        val lastDestination = (destinationService as? AwaitingDestinationService)?.lastDestination
         destinationService = DestinationServiceImpl(
             toMsg = onDestinationChange,
             dispatch = {
                 runtime.dispatch(it)
-            }
+            },
+            toBackMsg = toBackMsg,
+            setupBackPressedCallback = setupBackPressedCallback
         )
+        lastDestination?.let { destinationService.emit(it) }
 
         return runtime
     }

@@ -20,7 +20,6 @@ import com.here.sdk.mapviewlite.MapStyle
 import com.here.sdk.mapviewlite.MapViewLite
 import kotlinx.coroutines.*
 import ru.sbermarket.platform.*
-import ru.sbermarket.platform.modules.Destination
 import ru.sbermarket.platform.modules.json.Decoder
 import ru.sbermarket.platform.modules.json.Json
 import ru.sbermarket.platform.modules.json.Json.Decode.field
@@ -34,7 +33,26 @@ import ru.sbermarket.platform.modules.Http.Method
 import ru.sbermarket.platform.modules.message
 import ru.sbermarket.sbermarketlite.application.shared.*
 
+sealed interface AddressSelected
+object Not : AddressSelected
+data class ValidAddress(
+    override val lat: Float,
+    override val lon: Float,
+    val city : String,
+    val street: String,
+    val building: String
+): AddressSelected, Point
 
+fun Address.toSelected(): AddressSelected {
+    if (city == null || street == null || building == null) return Not
+    return ValidAddress(
+        lat = lat,
+        lon = lon,
+        city = city,
+        street = street,
+        building = building
+    )
+}
 
 internal fun Point.toGeoCoords(angle: Double = 0.0): GeoCoordinates =
     GeoCoordinates(lat.toDouble(), lon.toDouble(), angle)
@@ -100,6 +118,10 @@ fun Point.toAddress(): Address {
 
 fun Address.valid(): Boolean {
     return city != null && building != null && street != null
+}
+
+fun ValidAddress.toQueryParams(): String {
+    return "lat=$lat&lon=$lon&city=$city&building=$building&street=$street"
 }
 
 data class Address(
@@ -323,22 +345,27 @@ object SelectAddress {
         }
     }
 
+    fun <A, B, C> Pair<A, B>.add(third: C): Triple<A, B, C> {
+        return Triple(first, second, third)
+    }
 
     fun update(
         platform: Platform,
         config: Config,
         msg: Msg,
         model: AddressState
-    ): Pair<AddressState, Effect<Msg>> {
+    ): Triple<AddressState, Effect<Msg>, AddressSelected> {
         return when (msg) {
             is Msg.BringHere -> {
-                model to platform.Nav.navigate(Destination(urlString = "DESTINATION"))
+                val selected = model.address().toSelected()
+                Log.e("SELECTED", selected.toString())
+                Triple(model, platform.Nav.navigate("select-address"), model.address().toSelected())
             }
             is Msg.Search -> {
                 if (msg.point == model.point()) {
-                    model to none()
+                    Triple(model, none(), Not)
                 } else {
-                    model.search(msg.point) to config.geocoding.reverseGeocode(platform, msg.point) {
+                    val (next, effect) = model.search(msg.point) to config.geocoding.reverseGeocode<Msg>(platform, msg.point) {
                         val result = it.map { geocodingAddresses ->
                             geocodingAddresses.find { address ->
                                 address.city != null && address.street != null
@@ -346,10 +373,11 @@ object SelectAddress {
                         }
                         Msg.GeolocationResponse(result.toNullable())
                     }
+                    Triple(next, effect, Not)
                 }
             }
-            is Msg.GeolocationResponse -> model.handleGeocoder(platform, config, msg.result)
-            is Msg.DeliveryAvailabilityResponse -> model.handleDeliveryAvailabilityResponse(msg.result) to none()
+            is Msg.GeolocationResponse -> model.handleGeocoder(platform, config, msg.result).add(Not)
+            is Msg.DeliveryAvailabilityResponse -> Triple(model.handleDeliveryAvailabilityResponse(msg.result), none(), Not)
         }
     }
 

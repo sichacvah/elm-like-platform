@@ -17,13 +17,17 @@ fun <Model, Msg> PlatformWithInit.Compose(
     init: Platform.() -> Pair<Model, Effect<Msg>>,
     update: Platform.(Msg, Model)  -> Pair<Model, Effect<Msg>>,
     onDestinationChange: DestinationToMsg<Msg>,
+    onBackMsg: () -> Msg,
+    setupBackPressedCallback: (() -> Unit) -> Unit,
     view: @Composable (model: Model, dispatch: Dispatch<Msg>) -> Unit
 ) {
     val runtime = remember {
         this.init(
             init = init,
             update = update,
-            onDestinationChange = onDestinationChange
+            onDestinationChange = onDestinationChange,
+            toBackMsg = onBackMsg,
+            setupBackPressedCallback = setupBackPressedCallback
         )
     }
 

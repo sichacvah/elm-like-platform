@@ -4,18 +4,13 @@ import ru.sbermarket.platform.Dispatch
 import ru.sbermarket.platform.Effect
 import ru.sbermarket.platform.Meta
 
-/**
- * TODO: Use some URL implementation instead of [String]
- */
-data class Destination(
-    val urlString: String
-)
 
+typealias Destination = String
 
-typealias DestinationToMsg <Msg> = (Destination) -> Msg
+typealias DestinationToMsg <Msg> = (url: String) -> Msg
 
 interface Nav {
-    fun <Msg> navigate(destination: Destination, toMsg: (() -> Msg)? = null): Effect<Msg>
+    fun <Msg> navigate(destination: String, toMsg: (() -> Msg)? = null): Effect<Msg>
 }
 
 interface DestinationService {
@@ -23,19 +18,31 @@ interface DestinationService {
 }
 
 class AwaitingDestinationService : DestinationService {
+    var lastDestination: Destination? = null
     override fun emit(destination: Destination) {
-
+        lastDestination = destination
     }
+
 }
 
 class DestinationServiceImpl<Msg>(
     val toMsg: DestinationToMsg<Msg>,
-    val dispatch: Dispatch<Msg>
+    val toBackMsg : () -> Msg,
+    val dispatch: Dispatch<Msg>,
+    setupBackPressedCallback: (() -> Unit) -> Unit
 ): DestinationService {
+
+    init {
+        setupBackPressedCallback {
+            dispatch(toBackMsg())
+        }
+    }
 
     override fun emit(destination: Destination) {
         dispatch(toMsg(destination))
     }
+
+
 }
 
 class NavImpl(
