@@ -8,18 +8,44 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import ru.sbermarket.platform.*
-import ru.sbermarket.platform.modules.Destination
+import  ru.sbermarket.platform.modules.json.Json
 import ru.sbermarket.sbermarketlite.application.features.select_address.*
 import ru.sbermarket.sbermarketlite.application.features.select_store.SelectStore
 import ru.sbermarket.sbermarketlite.application.router.*
 import ru.sbermarket.sbermarketlite.application.shared.Config
 import ru.sbermarket.sbermarketlite.application.shared.SharedState
 import ru.sbermarket.sbermarketlite.application.shared.status
-import ru.sbermarket.sbermarketlite.rememberMapTo
+import ru.sbermarket.sbermarketlite.application.router.Destination
 
 sealed interface Screen {
-    data class SelectAddressScreen(val model : SelectAddress.AddressState) : Screen
-    data class SelectStoreScreen(val model: SelectStore.Model) : Screen
+    object SplashScreen : Screen {
+        val id = "Splash"
+    }
+    data class SelectAddressScreen(val model : SelectAddress.AddressState) : Screen {
+        companion object {
+            val id = "SelectAddress"
+        }
+    }
+    data class SelectStoreScreen(val model: SelectStore.Model) : Screen {
+        companion object {
+            val id = "SelectStore"
+        }
+    }
+}
+
+fun matcher(platform: Platform, shared: SharedState.Model, destination: Destination): Pair<Screen, Effect<App.Msg>> {
+    return when (destination.id) {
+        Screen.SplashScreen.id -> Screen.SplashScreen to none()
+        Screen.SelectAddressScreen.id -> {
+            val address = Address.decoder().decode(destination.params).toNullable()
+            val (model, effect) = SelectAddress.init(platform, shared.config, address)
+            Screen.SelectAddressScreen(model) to effect.mapTo(App.Msg::GotSelectAddressMsg)
+        }
+        Screen.SelectStoreScreen.id -> {
+            Screen.SelectStoreScreen(SelectStore.Model.None) to none()
+        }
+        else -> Screen.SplashScreen to none()
+    }
 }
 
 
@@ -41,7 +67,6 @@ object App {
                 }
             }
             is Model.Initialized -> {
-                val screen = model.backstack.top()
                 RouterView(shared = model.shared, screen = screen, dispatch = dispatch)
             }
         }
@@ -70,7 +95,7 @@ object App {
         data class Error(val shared: SharedState.Model) : Model()
         data class Initialized(
             val shared: SharedState.Model,
-            val backstack: BackStack<Screen>
+            val navigation: StackNavigation<Screen>
         ) : Model()
 
         fun setShared(shared: SharedState.Model): Model {

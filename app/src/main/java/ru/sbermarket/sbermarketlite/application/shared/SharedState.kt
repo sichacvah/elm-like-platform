@@ -5,12 +5,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import ru.sbermarket.platform.*
-
+import ru.sbermarket.sbermarketlite.application.router.StackNavigation
 
 
 data class Config(
     val baseUrl: String = "https://api.sbermarket.ru",
-    val geocoding: Geocoding = Geocoding()
+    val geocoding: Geocoding = Geocoding(),
+    val session: Session
 )
 
 typealias SharedStateModel = SharedState.Model
@@ -42,6 +43,7 @@ fun SharedState.Model.status(): SharedState.Status {
     }
 }
 
+
 object SharedState {
     sealed class Msg {
         data class ChangeConfig(val config: Config): Msg()
@@ -56,7 +58,7 @@ object SharedState {
 
     data class Model(
         val currentOrder: CurrentOrder.Model,
-        val config: Config
+        val config: Config,
     )
 
     val provideFeature = featureHolder<SharedStateFeature> { platform ->

@@ -1,131 +1,375 @@
 package ru.sbermarket.sbermarketlite.application.router
 
-sealed interface BackStack<Screen>
+import ru.sbermarket.platform.modules.json.JsonNull
+import ru.sbermarket.platform.modules.json.JsonType
 
-internal data class InternalBackStack<Screen>(
-    val head: Screen,
-    val tail: List<Screen>
-): BackStack<Screen>
 
-fun <Screen> BackStack(
-    current: Screen,
-    previous: List<Screen> = listOf()
-): BackStack<Screen> {
-    return InternalBackStack(
-        head = current,
-        tail = previous
-    )
-}
+sealed interface NavKey
+internal data class InternalNavKey(
+    val value: String
+): NavKey
 
-fun <Screen> BackStack<Screen>.top(): Screen {
-    return when (this) {
-        is InternalBackStack -> head
-    }
-}
-
-fun <Screen> BackStack<Screen>.replace(screen: Screen): BackStack<Screen> {
-    return when (this) {
-        is InternalBackStack -> copy(head = screen)
-    }
-}
-
-fun <Screen> BackStack<Screen>.push(screen: Screen): BackStack<Screen> {
-    return when (this) {
-        is InternalBackStack -> copy(head = screen, tail = tail.plus(head))
-    }
-}
-
-fun <Screen> BackStack<Screen>.pop(): Pair<BackStack<Screen>, Screen?> {
-    return when (this) {
-        is InternalBackStack -> {
-            if (tail.isEmpty()) {
-                this to null
-            } else {
-                this.copy(
-                    head = tail.last(),
-                    tail = tail.dropLast(1)
-                ) to head
+fun key(string: String): NavKey = InternalNavKey(string)
+fun NavKey.plus(other: NavKey): NavKey {
+    when (this) {
+        is InternalNavKey -> {
+            when (other) {
+                is InternalNavKey -> {
+                    return key(this.value + ":" + other.value)
+                }
             }
         }
     }
 }
 
-fun <Screen> BackStack<Screen>.clear(): BackStack<Screen> {
-    return when (this) {
-        is InternalBackStack -> {
-            copy(tail = listOf())
-        }
+fun BackStack.navKey(id: String): NavKey {
+    val parentKey = key()
+    return parentKey.plus(key(id))
+}
+
+sealed interface Destination {
+    val id: String
+    val params: JsonType
+    val key: NavKey
+}
+
+sealed interface Screen: Destination
+internal data class ScreenImpl(
+    override val id: String,
+    override val params: JsonType,
+    override val key: NavKey
+): Screen
+
+fun screen(id: String, params: JsonType = JsonNull, key: NavKey): Screen {
+    return ScreenImpl(
+        id,
+        params,
+        key
+    )
+}
+
+sealed interface BackStack : Destination
+
+internal data class InternalBackStack(
+    val stack: ZipList<Destination>,
+    override val id: String,
+    override val params: JsonType,
+    override val key: NavKey
+): BackStack
+
+fun BackStack.top(): Destination {
+    return stack().head()
+}
+
+fun BackStack.push(destination: Destination): BackStack {
+    val stack = stack().push(destination)
+    return backstack(
+        id = id(),
+        params = params(),
+        key = key(),
+        stack = stack
+    )
+}
+
+fun BackStack.push(id: String, params: JsonType, key: NavKey? = null): BackStack {
+    val finalKey = key ?: navKey(id)
+    val destination = screen(id, params, finalKey)
+    return push(destination = destination)
+}
+
+fun BackStack.pop(): Pair<BackStack, Destination?> {
+    val (stack, destination) = stack().pop()
+    return backstack(
+        id = id(),
+        params = params(),
+        key = key(),
+        stack = stack
+    ) to destination
+}
+
+fun BackStack.id(): String = when (this) {
+    is InternalBackStack -> id
+}
+
+fun BackStack.params(): JsonType = when (this) {
+    is InternalBackStack -> params
+}
+
+fun BackStack.key(): NavKey = when (this) {
+    is InternalBackStack -> key
+}
+
+fun BackStack.stack(): ZipList<Destination> = when (this) {
+    is InternalBackStack -> stack
+}
+
+fun backstack(
+    id: String,
+    params: JsonType = JsonNull,
+    key: NavKey,
+    destination: Destination
+): BackStack {
+    return backstack(
+        id = id,
+        params = params,
+        key = key,
+        stack = ziplist(destination)
+    )
+}
+
+fun backstack(
+    id: String,
+    params: JsonType = JsonNull,
+    key: NavKey,
+    stack: ZipList<Destination>
+): BackStack {
+    return InternalBackStack(
+        id = id,
+        params = params,
+        key = key,
+        stack = stack
+    )
+}
+
+sealed interface FiveTabs: Destination {
+    enum class SelectedTab {
+        FIRST,
+        SECOND,
+        THIRD,
+        FOURTH,
+        FIFTH
+    }
+
+    sealed class PopResult {
+        object Nothing : PopResult()
+        data class TabChanged(val selectedTab: SelectedTab) : PopResult()
+        data class PopBackStack(val destination: Destination) : PopResult()
     }
 }
 
-
-/***
- * Tabs
- *
- */
-
-
-sealed interface Tabs<Screen>
-
-
-internal data class InternalTabs<Screen>(
-    val current: String,
-    val tabs: Map<String, BackStack<Screen>>
-): Tabs<Screen>
-
-fun <Screen> Tabs<Screen>.currentTab(): BackStack<Screen>? {
+fun FiveTabs.SelectedTab.getPrev(): FiveTabs.SelectedTab? {
     return when (this) {
-        is InternalTabs -> {
-            tabs[current]
-        }
+        FiveTabs.SelectedTab.FIRST -> null
+        FiveTabs.SelectedTab.SECOND -> FiveTabs.SelectedTab.FIRST
+        FiveTabs.SelectedTab.THIRD -> FiveTabs.SelectedTab.SECOND
+        FiveTabs.SelectedTab.FOURTH -> FiveTabs.SelectedTab.THIRD
+        FiveTabs.SelectedTab.FIFTH -> FiveTabs.SelectedTab.FOURTH
     }
 }
 
+internal data class FiveTabsImpl(
+    val tab1: BackStack,
+    val tab2: BackStack,
+    val tab3: BackStack,
+    val tab4: BackStack,
+    val tab5: BackStack,
+    val selected: FiveTabs.SelectedTab,
+    override val id : String,
+    override val params : JsonType,
+    override val key: NavKey
+): FiveTabs
 
-fun <Screen> Tabs<Screen>.mapSelected(t: (BackStack<Screen>) -> BackStack<Screen>): Tabs<Screen> {
-    return when (this) {
-        is InternalTabs -> {
-            copy(
-                tabs = tabs.map { entry ->
-                    if (isSelected(entry.key)) {
-                        entry.key to t(entry.value)
-                    } else {
-                        entry.key to entry.value
-                    }
-                }.toMap()
+fun FiveTabs.push(destination: Destination): FiveTabs {
+    return mapSelected {
+        it.push(destination)
+    }
+}
+
+fun FiveTabs.pop(): Pair<FiveTabs, FiveTabs.PopResult> {
+    val selected = selected()
+    val selectedTab = selectedTab()
+    val (nextTab, destination) = selectedTab.pop()
+    // Если в текущем табе можно сделать .pop то возвращаем табы с выбранным табом и с уменьшеным бекстеком в нем
+    return destination?.let { dest ->
+        mapSelected { nextTab } to FiveTabs.PopResult.PopBackStack(dest)
+    } ?: run {
+        // Получаем предыдущий таб в другом случае и сетим его
+        val prevSelected = selected.getPrev()
+        prevSelected?.let { selectedTab ->
+            selectTab(prevSelected) to FiveTabs.PopResult.TabChanged(selectedTab)
+        } ?: this@pop to FiveTabs.PopResult.Nothing
+        // Если выбранный таб номер 1 и в нем один экран ничего не делаем
+    }
+}
+
+fun FiveTabs.mapSelected(t: (BackStack) -> BackStack): FiveTabs {
+    val builder = fiveTabsBuilder(id = id(), key = key(), params = params())
+    return when (selected()) {
+
+        FiveTabs.SelectedTab.FIRST -> {
+            builder(
+                t(first()),
+                second(),
+                third(),
+                fourth(),
+                fifth(),
+                selected()
             )
         }
-    }
-}
-
-fun <Screen> Tabs<Screen>.isSelected(id: String): Boolean {
-    return when (this) {
-        is InternalTabs -> current == id
-    }
-}
-
-val <Screen> Tabs<Screen>.current: Screen?
-    get() = currentTab()?.top()
-
-fun <Screen> Tabs<Screen>.clearAll(): Tabs<Screen> {
-    return when (this) {
-        is InternalTabs -> {
-            val nextTabs = tabs.map { entry ->
-                entry.key to entry.value.clear()
-            }.toMap()
-
-            copy(tabs = nextTabs)
-        }
-    }
-}
-
-fun <Screen> Tabs<Screen>.select(id: String): Tabs<Screen> {
-    return when (this) {
-        is InternalTabs -> {
-            copy(
-                current = id
+        FiveTabs.SelectedTab.SECOND -> {
+            builder(
+                first(),
+                t(second()),
+                third(),
+                fourth(),
+                fifth(),
+                selected()
             )
         }
+        FiveTabs.SelectedTab.THIRD -> {
+            builder(
+                first(),
+                second(),
+                t(third()),
+                fourth(),
+                fifth(),
+                selected()
+            )
+        }
+        FiveTabs.SelectedTab.FOURTH -> {
+            builder(
+                first(),
+                second(),
+                third(),
+                t(fourth()),
+                fifth(),
+                selected()
+            )
+        }
+        FiveTabs.SelectedTab.FIFTH -> builder(
+            first(),
+            second(),
+            third(),
+            fourth(),
+            t(fifth()),
+            selected()
+        )
     }
+}
+
+
+fun FiveTabs.selectedTab(): BackStack {
+    return when (selected()) {
+        FiveTabs.SelectedTab.FIRST -> first()
+        FiveTabs.SelectedTab.SECOND -> second()
+        FiveTabs.SelectedTab.THIRD -> third()
+        FiveTabs.SelectedTab.FOURTH -> fourth()
+        FiveTabs.SelectedTab.FIFTH -> fifth()
+    }
+}
+
+fun FiveTabs.selected(): FiveTabs.SelectedTab {
+    return when (this) {
+        is FiveTabsImpl -> {
+            selected
+        }
+    }
+}
+
+fun FiveTabs.selectTab(tab: FiveTabs.SelectedTab): FiveTabs {
+    val builder = fiveTabsBuilder(id = id(), key = key(), params = params())
+    return builder(
+        first(),
+        second(),
+        third(),
+        fourth(),
+        fifth(),
+        tab
+    )
+}
+
+fun FiveTabs.first(): BackStack {
+    return when (this) {
+        is FiveTabsImpl -> tab1
+    }
+}
+
+fun FiveTabs.second(): BackStack {
+    return when (this) {
+        is FiveTabsImpl -> tab2
+    }
+}
+
+fun FiveTabs.third(): BackStack {
+    return when (this) {
+        is FiveTabsImpl -> tab3
+    }
+}
+
+fun FiveTabs.fourth(): BackStack {
+    return when (this) {
+        is FiveTabsImpl -> tab4
+    }
+}
+
+fun FiveTabs.fifth(): BackStack {
+    return when (this) {
+        is FiveTabsImpl -> tab5
+    }
+}
+
+fun FiveTabs.id(): String = when (this) {
+    is FiveTabsImpl -> id
+}
+
+fun FiveTabs.params(): JsonType = when (this) {
+    is FiveTabsImpl -> params
+}
+
+fun FiveTabs.key(): NavKey = when (this) {
+    is FiveTabsImpl -> key
+}
+
+typealias FiveTabsBuilder = (
+    tab1: BackStack,
+    tab2: BackStack,
+    tab3: BackStack,
+    tab4: BackStack,
+    tab5: BackStack,
+    selected: FiveTabs.SelectedTab
+) -> FiveTabs
+
+fun fiveTabsBuilder(
+    id : String,
+    params: JsonType = JsonNull,
+    key : NavKey
+): FiveTabsBuilder {
+    return { tab1, tab2, tab3, tab4, tab5, selected ->
+        fiveTabs(
+            tab1,
+            tab2,
+            tab3,
+            tab4,
+            tab5,
+            selected,
+            id,
+            params,
+            key
+        )
+    }
+}
+
+fun fiveTabs(
+    tab1: BackStack,
+    tab2: BackStack,
+    tab3: BackStack,
+    tab4: BackStack,
+    tab5: BackStack,
+    selected: FiveTabs.SelectedTab = FiveTabs.SelectedTab.FIRST,
+    id : String,
+    params: JsonType = JsonNull,
+    key : NavKey
+): FiveTabs {
+    return FiveTabsImpl(
+        tab1 = tab1,
+        tab2 = tab2,
+        tab3 = tab3,
+        tab4 = tab4,
+        tab5 = tab5,
+        selected = selected,
+        id = id,
+        params = params,
+        key = key
+    )
 }
 

@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -93,6 +95,56 @@ fun Order(order: Order) {
     Box(modifier = Modifier.fillMaxSize()) {
         Text(text = "OrderLoaded - number: ${order.number}", modifier = Modifier.align(Alignment.Center), textAlign = TextAlign.Center)
     }
+}
+
+data class MainScreenModel(
+    val headerModel: HeaderModel,
+    val contentModel: ContentModel,
+    val showedToast: String?
+)
+sealed class MainScreenMsg {
+    object StartFlow : MainScreenMsg()
+    data class GotHeaderMsg(val subMsg: HeaderMsg): MainScreenMsg()
+    data class GotContentMsg(val subMsg: ContentMsg): MainScreenMsg()
+}
+
+fun update(msg: MainScreenMsg, model: MainScreenModel): Pair<MainScreenModel, Effect<MainScreenMsg>> {
+    when (msg) {
+        is MainScreenMsg.StartFlow -> // TODO: add init call
+        is MainScreenMsg.GotHeaderMsg -> {
+            val (headerModel, headerEffect) = headerUpdate(msg.subMsg, model.headerModel)
+            model.copy(
+                headerModel = headerModel
+            ) to headerEffect.mapTo(MainScreenMsg::GotHeaderMsg)
+        }
+    }
+}
+
+@Composable
+fun MainScreen(model: MainScreenModel, dispatch: Dispatch<MainScreenMsg>) {
+    Header(model.headerModel, dispatch.mapTo(MainScreenMsg::GotHeaderMsg))
+    Content(model.contentModel, dispatch.mapTo {
+        MainScreenMsg.GotContentMsg(it)
+    })
+}
+
+
+class HeaderModel
+class HeaderMsg
+@Composable
+fun Header(model: HeaderModel, dispatch: Dispatch<HeaderMsg>) {
+
+}
+fun headerUpdate(msg: HeaderMsg, model: HeaderModel): Pair<HeaderModel, Effect<HeaderMsg>> {
+
+}
+
+
+class ContentModel
+class ContentMsg
+@Composable
+fun Content(model: ContentModel,  dispatch: Dispatch<ContentMsg>) {
+
 }
 
 

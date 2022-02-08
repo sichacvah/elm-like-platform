@@ -36,8 +36,6 @@ interface Http {
         data class BadBody(val body: String) : Error()
     }
 
-
-
     enum class Method(val string: String) {
         GET("get"),
         POST("post"),

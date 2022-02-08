@@ -14,10 +14,24 @@ import ru.sbermarket.platform.modules.json.Json.Decode.oneOf
 import ru.sbermarket.platform.modules.json.Json.Decode.string
 import ru.sbermarket.platform.modules.json.Json.Decode.success
 
+data class Session(
+    private val token: String?
+) {
+    fun <Msg> request(platform: Platform, params: Http.HttpTaskParams<Msg>): Effect<Msg> {
+        return platform.Http.request(
+            params = params.copy(
+                headers = params.headers
+            )
+        )
+    }
+}
+
+
+
 data class Geocoding(
-    val apiKey: String = "QhIRUoC1dYf1prIgKmJgH5v6rxOGssFSPnCikBR8lJ4",
-    val apiToken: String = "z4VZXi2mabFQNoXOh4P6tNMzyOTEilVKBAcgo67Qj8dMesEG8mYX_TK8mD583HsRptGA7oSAMVJ4ZrS7cx5LSA",
-    val url: String = "https://discover.search.hereapi.com/v1"
+    internal val apiKey: String = "QhIRUoC1dYf1prIgKmJgH5v6rxOGssFSPnCikBR8lJ4",
+    internal val apiToken: String = "z4VZXi2mabFQNoXOh4P6tNMzyOTEilVKBAcgo67Qj8dMesEG8mYX_TK8mD583HsRptGA7oSAMVJ4ZrS7cx5LSA",
+    internal val url: String = "https://discover.search.hereapi.com/v1"
 )
 
 data class  GeocodingAddress(
@@ -87,6 +101,8 @@ fun <Msg> Geocoding.geocode(
         )
     ))
 }
+
+
 
 fun <Msg> Geocoding.reverseGeocode(
     platform: Platform,

@@ -3,6 +3,7 @@ package ru.sbermarket.platform
 import ru.sbermarket.platform.modules.*
 import ru.sbermarket.platform.modules.HttpImpl
 import ru.sbermarket.platform.modules.LocalImpl
+import ru.sbermarket.platform.modules.navigation.*
 
 
 interface Platform {
@@ -15,8 +16,8 @@ interface PlatformInitializer {
     fun <Model, Msg> init(
         init: Platform.() -> Pair<Model, Effect<Msg>>,
         update: Platform.(Msg, Model)  -> Pair<Model, Effect<Msg>>,
-        onDestinationChange: DestinationToMsg<Msg>,
-        toBackMsg: () -> Msg,
+        destinationContext: DestinationContext,
+        onNavigationChange: (next: DestinationContext, prev: DestinationContext) -> Msg,
         setupBackPressedCallback: (() -> Unit) -> Unit
     ): FlowRuntime<Model, Msg>
 }
@@ -27,21 +28,15 @@ class PlatformImpl(
     private val dependencies: PlatformDependencies
 ): PlatformWithInit {
 
-    private var destinationService: DestinationService = AwaitingDestinationService()
-
-    private fun provideDestinationService(): DestinationService {
-        return destinationService
-    }
-
     override val Http: Http by lazy { HttpImpl(dependencies.http) }
     override val Storage: Local by lazy { LocalImpl(dependencies.local) }
-    override val Nav: Nav by lazy { NavImpl(this::provideDestinationService) }
+    override val Nav: Nav by lazy { NavImpl() }
 
     override fun <Model, Msg> init(
         init: Platform.() -> Pair<Model, Effect<Msg>>,
         update: Platform.(Msg, Model) -> Pair<Model, Effect<Msg>>,
-        onDestinationChange: DestinationToMsg<Msg>,
-        toBackMsg: () -> Msg,
+        destinationContext: DestinationContext,
+        onNavigationChange: (next: DestinationContext, prev: DestinationContext) -> Msg,
         setupBackPressedCallback : (() -> Unit) -> Unit
     ): FlowRuntime<Model, Msg> {
 
@@ -51,16 +46,12 @@ class PlatformImpl(
             update = update
         )
 
-        val lastDestination = (destinationService as? AwaitingDestinationService)?.lastDestination
-        destinationService = DestinationServiceImpl(
-            toMsg = onDestinationChange,
-            dispatch = {
-                runtime.dispatch(it)
-            },
-            toBackMsg = toBackMsg,
-            setupBackPressedCallback = setupBackPressedCallback
-        )
-        lastDestination?.let { destinationService.emit(it) }
+        (Nav as NavImpl)
+        setupBackPressedCallback {
+            (Nav as NavImpl).back<Msg>()
+        }
+        (Nav as NavImpl).destinationContext = destinationContext
+        (Nav as NavImpl).onChange = onNavigationChange
 
         return runtime
     }
